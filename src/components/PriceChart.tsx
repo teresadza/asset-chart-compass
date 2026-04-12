@@ -1,38 +1,47 @@
 import { PricePoint } from "@/lib/mockData";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Area,
-  AreaChart,
+  Line,
+  LineChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import { getCompareColor } from "./ComparisonSelector";
+
+interface SeriesData {
+  ticker: string;
+  data: PricePoint[];
+}
 
 interface PriceChartProps {
   data: PricePoint[];
   ticker: string;
+  compareSeries?: SeriesData[];
 }
 
-function CustomTooltip({ active, payload }: any) {
+function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
-  const d = payload[0].payload as PricePoint;
-  const isPos = d.change >= 0;
   return (
-    <div className="rounded-lg border bg-background p-3 shadow-lg text-sm">
-      <div className="font-medium">{format(parseISO(d.date), "MMM d, yyyy")}</div>
-      <div className="text-lg font-bold mt-1">${d.price.toFixed(2)}</div>
-      <div className={`text-xs ${isPos ? "text-green-600" : "text-red-600"}`}>
-        {isPos ? "+" : ""}
-        {d.change.toFixed(2)} ({d.changePercent.toFixed(2)}%)
-      </div>
+    <div className="rounded-lg border bg-background p-3 shadow-lg text-sm min-w-[140px]">
+      <div className="font-medium mb-1.5">{format(parseISO(label), "MMM d, yyyy")}</div>
+      {payload.map((entry: any) => (
+        <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
+          <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
+          <span className="font-mono text-xs">${Number(entry.value).toFixed(2)}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
-export function PriceChart({ data, ticker }: PriceChartProps) {
+export function PriceChart({ data, ticker, compareSeries = [] }: PriceChartProps) {
+  const isComparing = compareSeries.length > 0;
+
   if (!data.length) {
     return (
       <Card>
@@ -43,29 +52,46 @@ export function PriceChart({ data, ticker }: PriceChartProps) {
     );
   }
 
-  const prices = data.map((d) => d.price);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+  // Merge all series into a single dataset keyed by date
+  const merged: Record<string, Record<string, number>> = {};
+  for (const d of data) {
+    if (!merged[d.date]) merged[d.date] = {};
+    merged[d.date][ticker] = d.price;
+  }
+  for (const s of compareSeries) {
+    for (const d of s.data) {
+      if (!merged[d.date]) merged[d.date] = {};
+      merged[d.date][s.ticker] = d.price;
+    }
+  }
+
+  const chartData = Object.entries(merged)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, values]) => ({ date, ...values }));
+
+  // Compute Y domain across all series
+  const allPrices: number[] = [];
+  for (const row of chartData) {
+    for (const [k, v] of Object.entries(row)) {
+      if (k !== "date" && typeof v === "number") allPrices.push(v);
+    }
+  }
+  const min = Math.min(...allPrices);
+  const max = Math.max(...allPrices);
   const padding = (max - min) * 0.1 || 5;
 
   const first = data[0].price;
   const last = data[data.length - 1].price;
   const isPositive = last >= first;
 
-  // thin out tick labels
-  const tickInterval = Math.max(1, Math.floor(data.length / 8));
+  const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
+  const primaryColor = isPositive ? "#16a34a" : "#dc2626";
 
   return (
     <Card>
       <CardContent className="p-4 pt-5">
         <ResponsiveContainer width="100%" height={400}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id={`grad-${ticker}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={isPositive ? "#16a34a" : "#dc2626"} stopOpacity={0.15} />
-                <stop offset="100%" stopColor={isPositive ? "#16a34a" : "#dc2626"} stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
             <XAxis
               dataKey="date"
@@ -82,16 +108,29 @@ export function PriceChart({ data, ticker }: PriceChartProps) {
               width={65}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Area
+            {isComparing && <Legend />}
+            <Line
               type="monotone"
-              dataKey="price"
-              stroke={isPositive ? "#16a34a" : "#dc2626"}
-              fill={`url(#grad-${ticker})`}
+              dataKey={ticker}
+              stroke={primaryColor}
               strokeWidth={2}
               dot={false}
               animationDuration={500}
+              connectNulls
             />
-          </AreaChart>
+            {compareSeries.map((s, i) => (
+              <Line
+                key={s.ticker}
+                type="monotone"
+                dataKey={s.ticker}
+                stroke={getCompareColor(i)}
+                strokeWidth={2}
+                dot={false}
+                animationDuration={500}
+                connectNulls
+              />
+            ))}
+          </LineChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

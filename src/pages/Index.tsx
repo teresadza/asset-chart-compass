@@ -5,9 +5,11 @@ import { AssetSelector } from "@/components/AssetSelector";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { AssetSummary } from "@/components/AssetSummary";
 import { PriceChart } from "@/components/PriceChart";
+import { ComparisonSelector } from "@/components/ComparisonSelector";
 
 const Index = () => {
   const [ticker, setTicker] = useState("AAPL");
+  const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
 
@@ -18,6 +20,20 @@ const Index = () => {
     () => filterByDateRange(allData, startDate, endDate),
     [allData, startDate, endDate]
   );
+
+  const compareSeries = useMemo(() => {
+    return compareTickers.map((t) => {
+      const a = ASSETS.find((x) => x.ticker === t)!;
+      const all = generatePriceData(a);
+      return { ticker: t, data: filterByDateRange(all, startDate, endDate) };
+    });
+  }, [compareTickers, startDate, endDate]);
+
+  const toggleCompare = (t: string) => {
+    setCompareTickers((prev) =>
+      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,14 +47,21 @@ const Index = () => {
       <main className="container mx-auto px-4 py-6 space-y-4">
         <AssetSummary asset={asset} data={filteredData} />
 
-        <DateRangeFilter
-          startDate={startDate}
-          endDate={endDate}
-          onStartChange={setStartDate}
-          onEndChange={setEndDate}
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartChange={setStartDate}
+            onEndChange={setEndDate}
+          />
+          <ComparisonSelector
+            primaryTicker={ticker}
+            compareTickers={compareTickers}
+            onToggle={toggleCompare}
+          />
+        </div>
 
-        <PriceChart data={filteredData} ticker={ticker} />
+        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} />
       </main>
     </div>
   );
