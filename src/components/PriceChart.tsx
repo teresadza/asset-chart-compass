@@ -25,21 +25,27 @@ interface PriceChartProps {
   normalized?: boolean;
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  // Detect normalized mode by checking if values are small (% range)
-  const isNorm = payload.length > 0 && Math.abs(payload[0]?.value) < 500 && payload.some((e: any) => Math.abs(e.value) < 100);
-  return (
-    <div className="rounded-lg border bg-background p-3 shadow-lg text-sm min-w-[140px]">
-      <div className="font-medium mb-1.5">{format(parseISO(label), "MMM d, yyyy")}</div>
-      {payload.map((entry: any) => (
-        <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
-          <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
-          <span className="font-mono text-xs">{entry.value != null ? `${Number(entry.value).toFixed(2)}${isNorm ? '%' : ''}` : "—"}</span>
-        </div>
-      ))}
-    </div>
-  );
+function createTooltip(isNormalized: boolean) {
+  return function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="rounded-lg border bg-background p-3 shadow-lg text-sm min-w-[140px]">
+        <div className="font-medium mb-1.5">{format(parseISO(label), "MMM d, yyyy")}</div>
+        {payload.map((entry: any) => (
+          <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
+            <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
+            <span className="font-mono text-xs">
+              {entry.value != null
+                ? isNormalized
+                  ? `${Number(entry.value).toFixed(2)}%`
+                  : `$${Number(entry.value).toFixed(2)}`
+                : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 }
 
 export function PriceChart({ data, ticker, compareSeries = [], normalized = false }: PriceChartProps) {
