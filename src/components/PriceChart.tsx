@@ -33,7 +33,7 @@ function CustomTooltip({ active, payload, label }: any) {
       {payload.map((entry: any) => (
         <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
           <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
-          <span className="font-mono text-xs">${Number(entry.value).toFixed(2)}</span>
+          <span className="font-mono text-xs">{entry.value != null ? (entry.name === "% change" || String(entry.dataKey).startsWith("__norm__") ? `${Number(entry.value).toFixed(2)}%` : `$${Number(entry.value).toFixed(2)}`) : "—"}</span>
         </div>
       ))}
     </div>
