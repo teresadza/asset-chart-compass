@@ -12,6 +12,7 @@ const Index = () => {
   const [ticker, setTicker] = useState("AAPL");
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [normalized, setNormalized] = useState(false);
+  const [showPiecewise, setShowPiecewise] = useState(false);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
 
@@ -56,7 +57,7 @@ const Index = () => {
             onStartChange={setStartDate}
             onEndChange={setEndDate}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <ComparisonSelector
               primaryTicker={ticker}
               compareTickers={compareTickers}
@@ -68,10 +69,14 @@ const Index = () => {
                 <Switch id="normalized" checked={normalized} onCheckedChange={setNormalized} />
               </div>
             )}
+            <div className="flex items-center gap-2">
+              <label htmlFor="piecewise" className="text-xs text-muted-foreground whitespace-nowrap">Piecewise Fit</label>
+              <Switch id="piecewise" checked={showPiecewise} onCheckedChange={setShowPiecewise} />
+            </div>
           </div>
         </div>
 
-        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} />
+        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} />
       </main>
     </div>
   );

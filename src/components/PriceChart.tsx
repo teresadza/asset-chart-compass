@@ -1,4 +1,5 @@
 import { PricePoint } from "@/lib/mockData";
+import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Line,
@@ -23,6 +24,7 @@ interface PriceChartProps {
   ticker: string;
   compareSeries?: SeriesData[];
   normalized?: boolean;
+  showPiecewise?: boolean;
 }
 
 function createTooltip(isNormalized: boolean) {
@@ -48,7 +50,7 @@ function createTooltip(isNormalized: boolean) {
   };
 }
 
-export function PriceChart({ data, ticker, compareSeries = [], normalized = false }: PriceChartProps) {
+export function PriceChart({ data, ticker, compareSeries = [], normalized = false, showPiecewise = false }: PriceChartProps) {
   const isComparing = compareSeries.length > 0;
 
   if (!data.length) {
@@ -104,7 +106,40 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     return row;
   });
 
-  // Compute Y domain across all series
+  // Compute piecewise model for each ticker if enabled
+  const piecewiseKeys: string[] = [];
+  if (showPiecewise) {
+    for (const t of allTickers) {
+      const vals = chartData.map((r) => r[t] as number | undefined).filter((v) => v != null) as number[];
+      if (vals.length < 10) continue;
+      // Build cumulative returns from the price/value series
+      const cumRet = vals.map((v) => {
+        const base = vals[0];
+        return base !== 0 ? ((v - base) / base) * 100 : 0;
+      });
+      const { model } = greedyPiecewise(cumRet, 0.98, 15);
+      // Map model back to price-like values
+      const base = vals[0];
+      const modelPrices = model.map((cr) => base * (1 + cr / 100));
+      // Inject into chartData (only rows that have this ticker)
+      const key = `${t}_fit`;
+      piecewiseKeys.push(key);
+      let idx = 0;
+      for (const row of chartData) {
+        if (row[t] != null) {
+          if (normalized) {
+            // In normalized mode, store model cumret directly
+            row[key] = model[idx];
+          } else {
+            row[key] = Math.round(modelPrices[idx] * 100) / 100;
+          }
+          idx++;
+        }
+      }
+    }
+  }
+
+  // Compute Y domain across all series (include piecewise fit values)
   const allPrices: number[] = [];
   for (const row of chartData) {
     for (const [k, v] of Object.entries(row)) {
@@ -162,7 +197,21 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
                 strokeWidth={2}
                 dot={false}
                 animationDuration={500}
+              connectNulls
+            />
+            ))}
+            {piecewiseKeys.map((key) => (
+              <Line
+                key={key}
+                type="linear"
+                dataKey={key}
+                stroke="#f59e0b"
+                strokeWidth={2}
+                strokeDasharray="6 3"
+                dot={false}
+                animationDuration={500}
                 connectNulls
+                name={key.replace("_fit", " fit")}
               />
             ))}
           </LineChart>
