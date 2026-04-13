@@ -197,10 +197,23 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
                 strokeWidth={2}
                 dot={false}
                 animationDuration={500}
+              connectNulls
+            />
+            ))}
+            {piecewiseKeys.map((key) => (
+              <Line
+                key={key}
+                type="linear"
+                dataKey={key}
+                stroke="#f59e0b"
+                strokeWidth={2}
+                strokeDasharray="6 3"
+                dot={false}
+                animationDuration={500}
                 connectNulls
+                name={key.replace("_fit", " fit")}
               />
             ))}
-          </LineChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
