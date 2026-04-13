@@ -142,7 +142,7 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
               className="fill-muted-foreground"
               width={65}
             />
-            <Tooltip content={<>{createTooltip(normalized)({} as any)}</>} contentStyle={{}} content={createTooltip(normalized)} />
+            <Tooltip content={createTooltip(normalized)} />
             {isComparing && <Legend />}
             <Line
               type="monotone"
