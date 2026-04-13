@@ -71,7 +71,7 @@ const Index = () => {
           </div>
         </div>
 
-        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} />
+        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} />
       </main>
     </div>
   );
