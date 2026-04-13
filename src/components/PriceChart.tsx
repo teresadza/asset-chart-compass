@@ -1,4 +1,5 @@
 import { PricePoint } from "@/lib/mockData";
+import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Line,
@@ -23,6 +24,7 @@ interface PriceChartProps {
   ticker: string;
   compareSeries?: SeriesData[];
   normalized?: boolean;
+  showPiecewise?: boolean;
 }
 
 function createTooltip(isNormalized: boolean) {
@@ -48,7 +50,7 @@ function createTooltip(isNormalized: boolean) {
   };
 }
 
-export function PriceChart({ data, ticker, compareSeries = [], normalized = false }: PriceChartProps) {
+export function PriceChart({ data, ticker, compareSeries = [], normalized = false, showPiecewise = false }: PriceChartProps) {
   const isComparing = compareSeries.length > 0;
 
   if (!data.length) {
