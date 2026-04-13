@@ -55,11 +55,19 @@ const Index = () => {
             onStartChange={setStartDate}
             onEndChange={setEndDate}
           />
-          <ComparisonSelector
-            primaryTicker={ticker}
-            compareTickers={compareTickers}
-            onToggle={toggleCompare}
-          />
+          <div className="flex items-center gap-3">
+            <ComparisonSelector
+              primaryTicker={ticker}
+              compareTickers={compareTickers}
+              onToggle={toggleCompare}
+            />
+            {compareTickers.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="normalized" className="text-xs text-muted-foreground whitespace-nowrap">% Change</label>
+                <Switch id="normalized" checked={normalized} onCheckedChange={setNormalized} />
+              </div>
+            )}
+          </div>
         </div>
 
         <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} />
