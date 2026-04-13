@@ -22,6 +22,7 @@ interface PriceChartProps {
   data: PricePoint[];
   ticker: string;
   compareSeries?: SeriesData[];
+  normalized?: boolean;
 }
 
 function CustomTooltip({ active, payload, label }: any) {
