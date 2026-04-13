@@ -6,6 +6,7 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { AssetSummary } from "@/components/AssetSummary";
 import { PriceChart } from "@/components/PriceChart";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
+import { Switch } from "@/components/ui/switch";
 
 const Index = () => {
   const [ticker, setTicker] = useState("AAPL");
