@@ -214,6 +214,7 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
                 name={key.replace("_fit", " fit")}
               />
             ))}
+          </LineChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
