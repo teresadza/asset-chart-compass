@@ -22,24 +22,33 @@ interface PriceChartProps {
   data: PricePoint[];
   ticker: string;
   compareSeries?: SeriesData[];
+  normalized?: boolean;
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border bg-background p-3 shadow-lg text-sm min-w-[140px]">
-      <div className="font-medium mb-1.5">{format(parseISO(label), "MMM d, yyyy")}</div>
-      {payload.map((entry: any) => (
-        <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
-          <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
-          <span className="font-mono text-xs">${Number(entry.value).toFixed(2)}</span>
-        </div>
-      ))}
-    </div>
-  );
+function createTooltip(isNormalized: boolean) {
+  return function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="rounded-lg border bg-background p-3 shadow-lg text-sm min-w-[140px]">
+        <div className="font-medium mb-1.5">{format(parseISO(label), "MMM d, yyyy")}</div>
+        {payload.map((entry: any) => (
+          <div key={entry.dataKey} className="flex justify-between gap-4 items-center">
+            <span style={{ color: entry.stroke }} className="font-semibold text-xs">{entry.dataKey}</span>
+            <span className="font-mono text-xs">
+              {entry.value != null
+                ? isNormalized
+                  ? `${Number(entry.value).toFixed(2)}%`
+                  : `$${Number(entry.value).toFixed(2)}`
+                : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 }
 
-export function PriceChart({ data, ticker, compareSeries = [] }: PriceChartProps) {
+export function PriceChart({ data, ticker, compareSeries = [], normalized = false }: PriceChartProps) {
   const isComparing = compareSeries.length > 0;
 
   if (!data.length) {
@@ -65,9 +74,35 @@ export function PriceChart({ data, ticker, compareSeries = [] }: PriceChartProps
     }
   }
 
-  const chartData = Object.entries(merged)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, values]) => ({ date, ...values }));
+  const sortedEntries = Object.entries(merged).sort(([a], [b]) => a.localeCompare(b));
+
+  // Build chart data, optionally normalizing to % change from first value
+  const allTickers = [ticker, ...compareSeries.map((s) => s.ticker)];
+  const basePrices: Record<string, number | undefined> = {};
+
+  if (normalized) {
+    for (const t of allTickers) {
+      for (const [, values] of sortedEntries) {
+        if (values[t] != null) {
+          basePrices[t] = values[t];
+          break;
+        }
+      }
+    }
+  }
+
+  const chartData = sortedEntries.map(([date, values]) => {
+    const row: Record<string, any> = { date };
+    for (const t of allTickers) {
+      if (values[t] == null) continue;
+      if (normalized && basePrices[t]) {
+        row[t] = ((values[t] - basePrices[t]!) / basePrices[t]!) * 100;
+      } else {
+        row[t] = values[t];
+      }
+    }
+    return row;
+  });
 
   // Compute Y domain across all series
   const allPrices: number[] = [];
@@ -82,7 +117,7 @@ export function PriceChart({ data, ticker, compareSeries = [] }: PriceChartProps
 
   const first = data[0].price;
   const last = data[data.length - 1].price;
-  const isPositive = last >= first;
+  const isPositive = normalized ? (chartData[chartData.length - 1]?.[ticker] ?? 0) >= 0 : last >= first;
 
   const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
   const primaryColor = isPositive ? "#16a34a" : "#dc2626";
@@ -102,12 +137,12 @@ export function PriceChart({ data, ticker, compareSeries = [] }: PriceChartProps
             />
             <YAxis
               domain={[Math.floor(min - padding), Math.ceil(max + padding)]}
-              tickFormatter={(v) => `$${v}`}
+              tickFormatter={(v) => normalized ? `${v}%` : `$${v}`}
               tick={{ fontSize: 11 }}
               className="fill-muted-foreground"
               width={65}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={createTooltip(normalized)} />
             {isComparing && <Legend />}
             <Line
               type="monotone"

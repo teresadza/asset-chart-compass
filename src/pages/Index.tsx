@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { subYears } from "date-fns";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { AssetSelector } from "@/components/AssetSelector";
@@ -6,10 +6,12 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { AssetSummary } from "@/components/AssetSummary";
 import { PriceChart } from "@/components/PriceChart";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
+import { Switch } from "@/components/ui/switch";
 
 const Index = () => {
   const [ticker, setTicker] = useState("AAPL");
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
+  const [normalized, setNormalized] = useState(false);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
 
@@ -54,14 +56,22 @@ const Index = () => {
             onStartChange={setStartDate}
             onEndChange={setEndDate}
           />
-          <ComparisonSelector
-            primaryTicker={ticker}
-            compareTickers={compareTickers}
-            onToggle={toggleCompare}
-          />
+          <div className="flex items-center gap-3">
+            <ComparisonSelector
+              primaryTicker={ticker}
+              compareTickers={compareTickers}
+              onToggle={toggleCompare}
+            />
+            {compareTickers.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="normalized" className="text-xs text-muted-foreground whitespace-nowrap">% Change</label>
+                <Switch id="normalized" checked={normalized} onCheckedChange={setNormalized} />
+              </div>
+            )}
+          </div>
         </div>
 
-        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} />
+        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} />
       </main>
     </div>
   );
