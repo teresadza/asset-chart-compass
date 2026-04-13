@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { subYears } from "date-fns";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { AssetSelector } from "@/components/AssetSelector";
