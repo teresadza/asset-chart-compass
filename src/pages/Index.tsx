@@ -10,6 +10,7 @@ import { ComparisonSelector } from "@/components/ComparisonSelector";
 const Index = () => {
   const [ticker, setTicker] = useState("AAPL");
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
+  const [normalized, setNormalized] = useState(false);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
 
