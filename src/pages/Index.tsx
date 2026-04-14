@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { subYears } from "date-fns";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { AssetSelector } from "@/components/AssetSelector";
+import { AppHeader } from "@/components/AppHeader";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { AssetSummary } from "@/components/AssetSummary";
 import { PriceChart } from "@/components/PriceChart";
@@ -40,12 +41,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 px-4">
-          <h1 className="text-xl font-bold tracking-tight">Market Data</h1>
-          <AssetSelector selected={ticker} onSelect={setTicker} />
-        </div>
-      </header>
+      <AppHeader />
+      <div className="container mx-auto flex items-center justify-end px-4 pt-4">
+        <AssetSelector selected={ticker} onSelect={setTicker} />
+      </div>
 
       <main className="container mx-auto px-4 py-6 space-y-4">
         <AssetSummary asset={asset} data={filteredData} />
