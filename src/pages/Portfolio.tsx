@@ -4,7 +4,9 @@ import { format, parseISO } from "date-fns";
 
 import { PortfolioAllocator } from "@/components/PortfolioAllocator";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { Allocation, calculatePortfolioReturns } from "@/lib/portfolioCalc";
+import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +21,7 @@ import {
   Legend,
 } from "recharts";
 
-const COLORS = ["#16a34a", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
+const OVERLAY_COLORS = ["#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#f59e0b", "#d97706"];
 
 const Portfolio = () => {
   const [allocations, setAllocations] = useState<Allocation[]>([
@@ -28,7 +30,7 @@ const Portfolio = () => {
   ]);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
-  const [showComponents, setShowComponents] = useState(false);
+  const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
   const [showPiecewise, setShowPiecewise] = useState(false);
 
   const totalWeight = allocations.reduce((s, a) => s + a.weight, 0);
@@ -39,23 +41,52 @@ const Portfolio = () => {
     return calculatePortfolioReturns(allocations, startDate, endDate);
   }, [allocations, startDate, endDate, isValid]);
 
+  // Compute overlay cumulative returns for selected assets
+  const overlayData = useMemo(() => {
+    if (overlayTickers.length === 0 || chartData.length === 0) return chartData;
+
+    // Build cum return for each overlay ticker
+    const overlaySeries: Record<string, Record<string, number>> = {};
+    for (const t of overlayTickers) {
+      const asset = ASSETS.find((a) => a.ticker === t);
+      if (!asset) continue;
+      const all = generatePriceData(asset);
+      const filtered = filterByDateRange(all, startDate, endDate);
+      if (filtered.length === 0) continue;
+      const base = filtered[0].price;
+      const lookup: Record<string, number> = {};
+      for (const p of filtered) {
+        lookup[p.date] = Math.round(((p.price - base) / base) * 10000) / 100;
+      }
+      overlaySeries[t] = lookup;
+    }
+
+    return chartData.map((row) => {
+      const next: any = { ...row };
+      for (const t of overlayTickers) {
+        if (overlaySeries[t]?.[row.date] != null) {
+          next[t] = overlaySeries[t][row.date];
+        }
+      }
+      return next;
+    });
+  }, [chartData, overlayTickers, startDate, endDate]);
+
   // Piecewise fit on portfolio
   const piecewiseData = useMemo(() => {
-    if (!showPiecewise || chartData.length < 10) return chartData;
-    const vals = chartData.map((r) => r.portfolio);
+    if (!showPiecewise || overlayData.length < 10) return overlayData;
+    const vals = overlayData.map((r) => r.portfolio);
     const { model } = greedyPiecewise(vals, 0.98, 15);
-    return chartData.map((row, i) => ({ ...row, portfolio_fit: Math.round(model[i] * 100) / 100 }));
-  }, [chartData, showPiecewise]);
+    return overlayData.map((row, i) => ({ ...row, portfolio_fit: Math.round(model[i] * 100) / 100 }));
+  }, [overlayData, showPiecewise]);
 
-  const displayData = showPiecewise ? piecewiseData : chartData;
+  const displayData = showPiecewise ? piecewiseData : overlayData;
 
   // Y domain
   const allVals: number[] = [];
   for (const row of displayData) {
     for (const [k, v] of Object.entries(row)) {
-      if (k !== "date" && typeof v === "number") {
-        if (showComponents || k === "portfolio" || k === "portfolio_fit") allVals.push(v);
-      }
+      if (k !== "date" && typeof v === "number") allVals.push(v);
     }
   }
   const min = allVals.length ? Math.min(...allVals) : 0;
@@ -63,6 +94,12 @@ const Portfolio = () => {
   const padding = (max - min) * 0.1 || 2;
 
   const tickInterval = Math.max(1, Math.floor(displayData.length / 8));
+
+  const toggleOverlay = (t: string) => {
+    setOverlayTickers((prev) =>
+      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
+    );
+  };
 
   return (
     <>
@@ -79,12 +116,11 @@ const Portfolio = () => {
             onEndChange={setEndDate}
           />
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label htmlFor="show-components" className="text-xs text-muted-foreground whitespace-nowrap">
-                Show Assets
-              </label>
-              <Switch id="show-components" checked={showComponents} onCheckedChange={setShowComponents} />
-            </div>
+            <ComparisonSelector
+              primaryTicker=""
+              compareTickers={overlayTickers}
+              onToggle={toggleOverlay}
+            />
             <div className="flex items-center gap-2">
               <label htmlFor="pw-fit" className="text-xs text-muted-foreground whitespace-nowrap">
                 Piecewise Fit
@@ -165,20 +201,19 @@ const Portfolio = () => {
                       name="portfolio fit"
                     />
                   )}
-                  {showComponents &&
-                    allocations.map((alloc, i) => (
-                      <Line
-                        key={alloc.ticker}
-                        type="monotone"
-                        dataKey={alloc.ticker}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={1.5}
-                        strokeDasharray="4 2"
-                        dot={false}
-                        animationDuration={500}
-                        connectNulls
-                      />
-                    ))}
+                  {overlayTickers.map((t, i) => (
+                    <Line
+                      key={t}
+                      type="monotone"
+                      dataKey={t}
+                      stroke={OVERLAY_COLORS[i % OVERLAY_COLORS.length]}
+                      strokeWidth={1.5}
+                      strokeDasharray="4 2"
+                      dot={false}
+                      animationDuration={500}
+                      connectNulls
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
