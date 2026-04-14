@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { subYears } from "date-fns";
 import { format, parseISO } from "date-fns";
-import { AppHeader } from "@/components/AppHeader";
+
 import { PortfolioAllocator } from "@/components/PortfolioAllocator";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Allocation, calculatePortfolioReturns } from "@/lib/portfolioCalc";
