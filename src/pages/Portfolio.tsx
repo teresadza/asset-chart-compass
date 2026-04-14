@@ -65,8 +65,7 @@ const Portfolio = () => {
   const tickInterval = Math.max(1, Math.floor(displayData.length / 8));
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <>
       <main className="container mx-auto px-4 py-6 space-y-5">
         <h2 className="text-lg font-semibold">Portfolio Builder</h2>
 
@@ -186,7 +185,7 @@ const Portfolio = () => {
           </Card>
         )}
       </main>
-    </div>
+    </>
   );
 };
 

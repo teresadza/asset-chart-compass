@@ -40,8 +40,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
+    <>
       <div className="container mx-auto flex items-center justify-end px-4 pt-4">
         <AssetSelector selected={ticker} onSelect={setTicker} />
       </div>
@@ -77,7 +76,7 @@ const Index = () => {
 
         <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} />
       </main>
-    </div>
+    </>
   );
 };
 
