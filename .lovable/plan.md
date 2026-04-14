@@ -1,22 +1,41 @@
 
-## Market Data Dashboard
+
+## Portfolio Builder Page
 
 ### Overview
-A clean market data visualization app for stocks and mutual funds, using mock data with a custom date range picker.
+A new `/portfolio` page where users dynamically add/remove assets with percentage weights, then visualize the blended portfolio return over time.
 
-### Features
+### Key Features
 
-1. **Asset Selector** — Searchable dropdown to pick from a list of sample stocks (AAPL, MSFT, TSLA, AMZN, GOOGL) and mutual funds (VFIAX, FXAIX, SWPPX). Selecting an asset loads its chart.
+1. **Navigation** — Add a simple nav bar (or tabs) to switch between the existing Market Data page (`/`) and the new Portfolio page (`/portfolio`).
 
-2. **Price Chart** — Interactive line chart (using Recharts) showing the selected asset's price over time. Includes hover tooltips with date, price, and daily change. Y-axis auto-scales to the data range.
+2. **Dynamic Asset Allocation UI** — A list of rows, each with:
+   - Asset selector dropdown (reusing existing `ASSETS` list)
+   - Percentage weight input (number field)
+   - Remove button
+   - An "Add Asset" button to append rows
+   - Total weight indicator (highlights red if not 100%)
 
-3. **Custom Date Range Filter** — Two date pickers (start date / end date) to filter the chart. Quick preset buttons (1D, 1W, 1M, 3M, 1Y, All) for convenience alongside the custom picker.
+3. **Portfolio Return Calculation** — Using existing `generatePriceData` + `filterByDateRange`:
+   - Compute daily returns for each selected asset
+   - Blend them: `portfolioReturn[t] = Σ(weight_i × dailyReturn_i[t])`
+   - Accumulate into a cumulative return series
 
-4. **Asset Summary Card** — Shows current price, daily change (%), and a small sparkline for at-a-glance performance above the main chart.
+4. **Portfolio Chart** — Recharts line chart showing cumulative portfolio return over time, with:
+   - Date range filter (reuse `DateRangeFilter` component)
+   - Optional piecewise fit toggle (reuse existing model)
+   - Tooltip showing date and portfolio value/return
 
-5. **Mock Data Engine** — Generates realistic historical price data (up to 5 years) for each asset using a random walk algorithm seeded per ticker, so data is consistent across visits.
+5. **Optional: Overlay individual assets** — Toggle to show each constituent's cumulative return alongside the blended portfolio line.
 
-### Design
-- Light, clean layout with a top bar for asset selection and date filters
-- Chart takes up the main content area
-- Responsive: stacks controls vertically on mobile
+### Technical Plan
+
+| Step | Files |
+|------|-------|
+| Add nav header component | `src/components/AppHeader.tsx` |
+| Create portfolio page | `src/pages/Portfolio.tsx` |
+| Create allocation editor component | `src/components/PortfolioAllocator.tsx` |
+| Add portfolio return utility | `src/lib/portfolioCalc.ts` |
+| Update routes | `src/App.tsx` |
+| Update Index page to use shared header | `src/pages/Index.tsx` |
+
