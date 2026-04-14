@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { subYears } from "date-fns";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { AssetSelector } from "@/components/AssetSelector";
+import { AppHeader } from "@/components/AppHeader";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { AssetSummary } from "@/components/AssetSummary";
 import { PriceChart } from "@/components/PriceChart";
