@@ -45,7 +45,7 @@ export function computeStatsRelativeDrawdowns(
     return { peak: dd.peak, trough: dd.trough, recovery: dd.recovery, drawdown };
   });
 
-  return { ...base, maxDrawdowns };
+  return { ...base, maxDrawdowns, drawdownLabel: "During Portfolio Drawdowns" };
 }
 
 export function computeStats(
