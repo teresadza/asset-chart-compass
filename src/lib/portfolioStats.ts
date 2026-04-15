@@ -4,6 +4,7 @@ export interface PortfolioStats {
   annualizedReturn: number;
   annualizedVol: number;
   maxDrawdowns: { peak: string; trough: string; recovery: string | null; drawdown: number }[];
+  drawdownLabel?: string;
 }
 
 /**

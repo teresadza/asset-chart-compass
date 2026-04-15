@@ -47,7 +47,7 @@ export function PortfolioSummaryCards({ stats }: PortfolioSummaryCardsProps) {
 
             {s.maxDrawdowns.length > 0 && (
               <div>
-                <div className="text-xs text-muted-foreground mb-1.5 font-medium">Largest Drawdowns</div>
+                <div className="text-xs text-muted-foreground mb-1.5 font-medium">{s.drawdownLabel || "Largest Drawdowns"}</div>
                 <div className="space-y-1">
                   {s.maxDrawdowns.map((dd, i) => (
                     <div key={i} className="flex items-center justify-between text-xs gap-2">
