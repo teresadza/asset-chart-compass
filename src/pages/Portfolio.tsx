@@ -5,7 +5,9 @@ import { format, parseISO } from "date-fns";
 import { PortfolioAllocator } from "@/components/PortfolioAllocator";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
+import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { Allocation, calculatePortfolioReturns } from "@/lib/portfolioCalc";
+import { computeStats, PortfolioStats } from "@/lib/portfolioStats";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +24,7 @@ import {
 } from "recharts";
 
 const OVERLAY_COLORS = ["#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#f59e0b", "#d97706"];
+const CONSTITUENT_COLORS = ["#64748b", "#94a3b8", "#78716c", "#a1a1aa", "#737373", "#9ca3af", "#a3a3a3", "#6b7280"];
 
 const Portfolio = () => {
   const [allocations, setAllocations] = useState<Allocation[]>([
@@ -32,6 +35,7 @@ const Portfolio = () => {
   const [endDate, setEndDate] = useState(() => new Date());
   const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
   const [showPiecewise, setShowPiecewise] = useState(false);
+  const [showAssets, setShowAssets] = useState(false);
 
   const totalWeight = allocations.reduce((s, a) => s + a.weight, 0);
   const isValid = Math.abs(totalWeight - 100) < 0.01 && allocations.length > 0;
@@ -41,12 +45,9 @@ const Portfolio = () => {
     return calculatePortfolioReturns(allocations, startDate, endDate);
   }, [allocations, startDate, endDate, isValid]);
 
-  // Compute overlay cumulative returns for selected assets
-  const overlayData = useMemo(() => {
-    if (overlayTickers.length === 0 || chartData.length === 0) return chartData;
-
-    // Build cum return for each overlay ticker
-    const overlaySeries: Record<string, Record<string, number>> = {};
+  // Build overlay cum returns for compare assets
+  const overlaySeriesMap = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
     for (const t of overlayTickers) {
       const asset = ASSETS.find((a) => a.ticker === t);
       if (!asset) continue;
@@ -58,35 +59,68 @@ const Portfolio = () => {
       for (const p of filtered) {
         lookup[p.date] = Math.round(((p.price - base) / base) * 10000) / 100;
       }
-      overlaySeries[t] = lookup;
+      map[t] = lookup;
     }
+    return map;
+  }, [overlayTickers, startDate, endDate]);
 
+  // Merge overlay data onto chart data
+  const mergedData = useMemo(() => {
+    if (overlayTickers.length === 0) return chartData;
     return chartData.map((row) => {
       const next: any = { ...row };
       for (const t of overlayTickers) {
-        if (overlaySeries[t]?.[row.date] != null) {
-          next[t] = overlaySeries[t][row.date];
+        if (overlaySeriesMap[t]?.[row.date] != null) {
+          next[t] = overlaySeriesMap[t][row.date];
         }
       }
       return next;
     });
-  }, [chartData, overlayTickers, startDate, endDate]);
+  }, [chartData, overlayTickers, overlaySeriesMap]);
 
-  // Piecewise fit on portfolio
+  // Piecewise fit
   const piecewiseData = useMemo(() => {
-    if (!showPiecewise || overlayData.length < 10) return overlayData;
-    const vals = overlayData.map((r) => r.portfolio);
+    if (!showPiecewise || mergedData.length < 10) return mergedData;
+    const vals = mergedData.map((r) => r.portfolio);
     const { model } = greedyPiecewise(vals, 0.98, 15);
-    return overlayData.map((row, i) => ({ ...row, portfolio_fit: Math.round(model[i] * 100) / 100 }));
-  }, [overlayData, showPiecewise]);
+    return mergedData.map((row, i) => ({ ...row, portfolio_fit: Math.round(model[i] * 100) / 100 }));
+  }, [mergedData, showPiecewise]);
 
-  const displayData = showPiecewise ? piecewiseData : overlayData;
+  const displayData = showPiecewise ? piecewiseData : mergedData;
+
+  // Constituent tickers for Show Assets
+  const constituentTickers = allocations.map((a) => a.ticker);
+
+  // Stats computation
+  const summaryStats = useMemo<PortfolioStats[]>(() => {
+    if (chartData.length < 2) return [];
+    const dates = chartData.map((r) => r.date);
+    const stats: PortfolioStats[] = [];
+
+    // Portfolio stats
+    const portfolioVals = chartData.map((r) => r.portfolio);
+    stats.push(computeStats("Portfolio", dates, portfolioVals, 3));
+
+    // Compare asset stats
+    for (const t of overlayTickers) {
+      const lookup = overlaySeriesMap[t];
+      if (!lookup) continue;
+      const vals = dates.map((d) => lookup[d] ?? 0);
+      stats.push(computeStats(t, dates, vals, 3));
+    }
+
+    return stats;
+  }, [chartData, overlayTickers, overlaySeriesMap]);
 
   // Y domain
   const allVals: number[] = [];
   for (const row of displayData) {
     for (const [k, v] of Object.entries(row)) {
-      if (k !== "date" && typeof v === "number") allVals.push(v);
+      if (k !== "date" && typeof v === "number") {
+        // Skip constituent keys if showAssets is off
+        if (!showAssets && constituentTickers.includes(k) && k !== "portfolio" && k !== "portfolio_fit" && !overlayTickers.includes(k)) continue;
+        allVals.push(v);
+      }
     }
   }
   const min = allVals.length ? Math.min(...allVals) : 0;
@@ -121,6 +155,12 @@ const Portfolio = () => {
               compareTickers={overlayTickers}
               onToggle={toggleOverlay}
             />
+            <div className="flex items-center gap-2">
+              <label htmlFor="show-assets" className="text-xs text-muted-foreground whitespace-nowrap">
+                Show Assets
+              </label>
+              <Switch id="show-assets" checked={showAssets} onCheckedChange={setShowAssets} />
+            </div>
             <div className="flex items-center gap-2">
               <label htmlFor="pw-fit" className="text-xs text-muted-foreground whitespace-nowrap">
                 Piecewise Fit
@@ -179,6 +219,7 @@ const Portfolio = () => {
                     }}
                   />
                   <Legend />
+                  {/* Portfolio line */}
                   <Line
                     type="monotone"
                     dataKey="portfolio"
@@ -188,6 +229,7 @@ const Portfolio = () => {
                     animationDuration={500}
                     connectNulls
                   />
+                  {/* Piecewise fit */}
                   {showPiecewise && (
                     <Line
                       type="linear"
@@ -201,9 +243,26 @@ const Portfolio = () => {
                       name="portfolio fit"
                     />
                   )}
+                  {/* Constituent assets (Show Assets toggle) */}
+                  {showAssets &&
+                    constituentTickers.map((t, i) => (
+                      <Line
+                        key={`constituent-${t}`}
+                        type="monotone"
+                        dataKey={t}
+                        stroke={CONSTITUENT_COLORS[i % CONSTITUENT_COLORS.length]}
+                        strokeWidth={1}
+                        strokeDasharray="2 2"
+                        dot={false}
+                        animationDuration={500}
+                        connectNulls
+                        name={`${t} (constituent)`}
+                      />
+                    ))}
+                  {/* Compare overlay assets */}
                   {overlayTickers.map((t, i) => (
                     <Line
-                      key={t}
+                      key={`compare-${t}`}
                       type="monotone"
                       dataKey={t}
                       stroke={OVERLAY_COLORS[i % OVERLAY_COLORS.length]}
@@ -219,6 +278,9 @@ const Portfolio = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Summary stats cards */}
+        <PortfolioSummaryCards stats={summaryStats} />
       </main>
     </>
   );
