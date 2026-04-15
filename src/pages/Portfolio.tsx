@@ -3,6 +3,7 @@ import { subYears } from "date-fns";
 import { format, parseISO } from "date-fns";
 
 import { PortfolioAllocator } from "@/components/PortfolioAllocator";
+import { PortfolioSaveLoad } from "@/components/PortfolioSaveLoad";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
@@ -139,7 +140,10 @@ const Portfolio = () => {
   return (
     <>
       <main className="container mx-auto px-4 py-6 space-y-5">
-        <h2 className="text-lg font-semibold">Portfolio Builder</h2>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h2 className="text-lg font-semibold">Portfolio Builder</h2>
+          <PortfolioSaveLoad allocations={allocations} onLoad={setAllocations} />
+        </div>
 
         <PortfolioAllocator allocations={allocations} onChange={setAllocations} />
 
