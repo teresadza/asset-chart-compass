@@ -4,6 +4,7 @@ export interface PortfolioStats {
   annualizedReturn: number;
   annualizedVol: number;
   maxDrawdowns: { peak: string; trough: string; recovery: string | null; drawdown: number }[];
+  drawdownLabel?: string;
 }
 
 /**
@@ -44,7 +45,7 @@ export function computeStatsRelativeDrawdowns(
     return { peak: dd.peak, trough: dd.trough, recovery: dd.recovery, drawdown };
   });
 
-  return { ...base, maxDrawdowns };
+  return { ...base, maxDrawdowns, drawdownLabel: "During Portfolio Drawdowns" };
 }
 
 export function computeStats(
