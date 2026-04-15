@@ -10,6 +10,43 @@ export interface PortfolioStats {
  * Compute stats from a cumulative-return series (% values).
  * dates[] and cumReturns[] must be same length.
  */
+/**
+ * Compute stats using another series' drawdown periods.
+ * For each reference drawdown period (peak→trough), compute
+ * this asset's return over that same date window.
+ */
+export function computeStatsRelativeDrawdowns(
+  label: string,
+  dates: string[],
+  cumReturns: number[],
+  referenceStats: PortfolioStats
+): PortfolioStats {
+  const n = cumReturns.length;
+  if (n < 2) {
+    return { label, totalReturn: 0, annualizedReturn: 0, annualizedVol: 0, maxDrawdowns: [] };
+  }
+
+  const base = computeStats(label, dates, cumReturns, 0); // 0 drawdowns – we'll override
+
+  // Map date → index for quick lookup
+  const dateIdx: Record<string, number> = {};
+  for (let i = 0; i < dates.length; i++) dateIdx[dates[i]] = i;
+
+  const equity = cumReturns.map((r) => 1 + r / 100);
+
+  const maxDrawdowns = referenceStats.maxDrawdowns.map((dd) => {
+    const pi = dateIdx[dd.peak];
+    const ti = dateIdx[dd.trough];
+    if (pi == null || ti == null || equity[pi] === 0) {
+      return { peak: dd.peak, trough: dd.trough, recovery: dd.recovery, drawdown: 0 };
+    }
+    const drawdown = Math.round((equity[ti] / equity[pi] - 1) * 10000) / 100;
+    return { peak: dd.peak, trough: dd.trough, recovery: dd.recovery, drawdown };
+  });
+
+  return { ...base, maxDrawdowns };
+}
+
 export function computeStats(
   label: string,
   dates: string[],

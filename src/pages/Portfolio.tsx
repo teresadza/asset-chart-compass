@@ -7,7 +7,7 @@ import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { Allocation, calculatePortfolioReturns } from "@/lib/portfolioCalc";
-import { computeStats, PortfolioStats } from "@/lib/portfolioStats";
+import { computeStats, computeStatsRelativeDrawdowns, PortfolioStats } from "@/lib/portfolioStats";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Switch } from "@/components/ui/switch";
@@ -99,14 +99,15 @@ const Portfolio = () => {
 
     // Portfolio stats
     const portfolioVals = chartData.map((r) => r.portfolio);
-    stats.push(computeStats("Portfolio", dates, portfolioVals, 3));
+    const portfolioStats = computeStats("Portfolio", dates, portfolioVals, 3);
+    stats.push(portfolioStats);
 
-    // Compare asset stats
+    // Compare asset stats – use portfolio's drawdown periods
     for (const t of overlayTickers) {
       const lookup = overlaySeriesMap[t];
       if (!lookup) continue;
       const vals = dates.map((d) => lookup[d] ?? 0);
-      stats.push(computeStats(t, dates, vals, 3));
+      stats.push(computeStatsRelativeDrawdowns(t, dates, vals, portfolioStats));
     }
 
     return stats;
