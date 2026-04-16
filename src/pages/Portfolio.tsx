@@ -9,7 +9,7 @@ import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { Allocation, calculatePortfolioReturns, calculateCumulativeReturns } from "@/lib/portfolioCalc";
 import { computeStats, computeStatsRelativeDrawdowns, PortfolioStats } from "@/lib/portfolioStats";
-import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
+import { ASSETS } from "@/lib/mockData";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
