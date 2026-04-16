@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { subYears } from "date-fns";
-import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
+import { useData } from "@/contexts/DataContext";
+import { toPricePoints, filterByDateRange } from "@/lib/priceSeries";
 
 import { AssetSelector } from "@/components/AssetSelector";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
@@ -10,39 +11,40 @@ import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { Switch } from "@/components/ui/switch";
 
 const Index = () => {
-  const [ticker, setTicker] = useState("AAPL");
+  const { assets, getSeries, loading, error } = useData();
+  const defaultTicker = assets[0]?.ticker ?? "";
+  const [ticker, setTicker] = useState(defaultTicker);
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [normalized, setNormalized] = useState(false);
   const [showPiecewise, setShowPiecewise] = useState(false);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
 
-  const asset = ASSETS.find((a) => a.ticker === ticker)!;
+  const activeTicker = ticker || defaultTicker;
+  const asset = assets.find((a) => a.ticker === activeTicker);
 
-  const allData = useMemo(() => generatePriceData(asset), [asset]);
-  const filteredData = useMemo(
-    () => filterByDateRange(allData, startDate, endDate),
-    [allData, startDate, endDate]
-  );
+  const allData = useMemo(() => (asset ? toPricePoints(getSeries(asset.ticker)) : []), [asset, getSeries]);
+  const filteredData = useMemo(() => filterByDateRange(allData, startDate, endDate), [allData, startDate, endDate]);
 
   const compareSeries = useMemo(() => {
-    return compareTickers.map((t) => {
-      const a = ASSETS.find((x) => x.ticker === t)!;
-      const all = generatePriceData(a);
-      return { ticker: t, data: filterByDateRange(all, startDate, endDate) };
-    });
-  }, [compareTickers, startDate, endDate]);
+    return compareTickers.map((t) => ({
+      ticker: t,
+      data: filterByDateRange(toPricePoints(getSeries(t)), startDate, endDate),
+    }));
+  }, [compareTickers, startDate, endDate, getSeries]);
 
   const toggleCompare = (t: string) => {
-    setCompareTickers((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-    );
+    setCompareTickers((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   };
+
+  if (loading) return <main className="container mx-auto px-4 py-10 text-muted-foreground">Loading data…</main>;
+  if (error) return <main className="container mx-auto px-4 py-10 text-destructive">Error loading data: {error}</main>;
+  if (!asset) return <main className="container mx-auto px-4 py-10 text-muted-foreground">No assets in workbook.</main>;
 
   return (
     <>
       <div className="container mx-auto flex items-center justify-end px-4 pt-4">
-        <AssetSelector selected={ticker} onSelect={setTicker} />
+        <AssetSelector selected={activeTicker} onSelect={setTicker} />
       </div>
 
       <main className="container mx-auto px-4 py-6 space-y-4">
@@ -57,7 +59,7 @@ const Index = () => {
           />
           <div className="flex items-center gap-3 flex-wrap">
             <ComparisonSelector
-              primaryTicker={ticker}
+              primaryTicker={activeTicker}
               compareTickers={compareTickers}
               onToggle={toggleCompare}
             />
@@ -74,7 +76,7 @@ const Index = () => {
           </div>
         </div>
 
-        <PriceChart data={filteredData} ticker={ticker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} />
+        <PriceChart data={filteredData} ticker={activeTicker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} />
       </main>
     </>
   );

@@ -1,4 +1,4 @@
-import { Asset, ASSETS } from "@/lib/mockData";
+import { useData } from "@/contexts/DataContext";
 import {
   Select,
   SelectContent,
@@ -15,8 +15,13 @@ interface AssetSelectorProps {
 }
 
 export function AssetSelector({ selected, onSelect }: AssetSelectorProps) {
-  const stocks = ASSETS.filter((a) => a.type === "stock");
-  const funds = ASSETS.filter((a) => a.type === "mutual_fund");
+  const { assets } = useData();
+  // Group by asset_class
+  const groups: Record<string, typeof assets> = {};
+  for (const a of assets) {
+    const k = a.asset_class || "Other";
+    (groups[k] ||= []).push(a);
+  }
 
   return (
     <Select value={selected} onValueChange={onSelect}>
@@ -24,24 +29,17 @@ export function AssetSelector({ selected, onSelect }: AssetSelectorProps) {
         <SelectValue placeholder="Select an asset" />
       </SelectTrigger>
       <SelectContent>
-        <SelectGroup>
-          <SelectLabel>Stocks</SelectLabel>
-          {stocks.map((a) => (
-            <SelectItem key={a.ticker} value={a.ticker}>
-              <span className="font-semibold">{a.ticker}</span>
-              <span className="ml-2 text-muted-foreground">{a.name}</span>
-            </SelectItem>
-          ))}
-        </SelectGroup>
-        <SelectGroup>
-          <SelectLabel>Mutual Funds</SelectLabel>
-          {funds.map((a) => (
-            <SelectItem key={a.ticker} value={a.ticker}>
-              <span className="font-semibold">{a.ticker}</span>
-              <span className="ml-2 text-muted-foreground">{a.name}</span>
-            </SelectItem>
-          ))}
-        </SelectGroup>
+        {Object.entries(groups).map(([cls, list]) => (
+          <SelectGroup key={cls}>
+            <SelectLabel>{cls}</SelectLabel>
+            {list.map((a) => (
+              <SelectItem key={a.ticker} value={a.ticker}>
+                <span className="font-semibold">{a.ticker}</span>
+                <span className="ml-2 text-muted-foreground">{a.name}</span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
       </SelectContent>
     </Select>
   );

@@ -1,4 +1,4 @@
-import { PricePoint } from "@/lib/mockData";
+import { PricePoint } from "@/lib/priceSeries";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -40,7 +40,7 @@ function createTooltip(isNormalized: boolean) {
               {entry.value != null
                 ? isNormalized
                   ? `${Number(entry.value).toFixed(2)}%`
-                  : `$${Number(entry.value).toFixed(2)}`
+                  : `${Number(entry.value).toFixed(2)}`
                 : "—"}
             </span>
           </div>
@@ -63,7 +63,6 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     );
   }
 
-  // Merge all series into a single dataset keyed by date
   const merged: Record<string, Record<string, number>> = {};
   for (const d of data) {
     if (!merged[d.date]) merged[d.date] = {};
@@ -77,12 +76,8 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
   }
 
   const sortedEntries = Object.entries(merged).sort(([a], [b]) => a.localeCompare(b));
-
-  // Build chart data, optionally normalizing to cumulative return %
-  // using pct_change → (1 + r).cumprod() - 1
   const allTickers = [ticker, ...compareSeries.map((s) => s.ticker)];
 
-  // Per-ticker cumulative-return lookup (date -> cumret %)
   const cumretLookup: Record<string, Record<string, number>> = {};
   if (normalized) {
     for (const t of allTickers) {
@@ -92,9 +87,7 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
       for (const [date, values] of sortedEntries) {
         const price = values[t];
         if (price == null) continue;
-        if (prev != null && prev !== 0) {
-          factor *= price / prev;
-        }
+        if (prev != null && prev !== 0) factor *= price / prev;
         prev = price;
         lookup[date] = (factor - 1) * 100;
       }
@@ -116,11 +109,9 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     return row;
   });
 
-  // Piecewise model — always fit on cumulative returns (pct_change → cumprod)
   const piecewiseKeys: string[] = [];
   if (showPiecewise) {
     for (const t of allTickers) {
-      // Build cumulative return series from raw prices for this ticker
       const cumRet: number[] = [];
       const rowIdxs: number[] = [];
       let factor = 1;
@@ -144,7 +135,6 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
         if (normalized) {
           row[key] = Math.round(model[i] * 100) / 100;
         } else {
-          // Map model cumret back into a price-like value (price0 * (1 + cr/100))
           const base = sortedEntries.find(([d]) => d === chartData[rowIdxs[0]].date)?.[1][t];
           if (base != null) {
             row[key] = Math.round(base * (1 + model[i] / 100) * 100) / 100;
@@ -154,7 +144,6 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     }
   }
 
-  // Compute Y domain across all series (include piecewise fit values)
   const allPrices: number[] = [];
   for (const row of chartData) {
     for (const [k, v] of Object.entries(row)) {
@@ -168,7 +157,6 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
   const first = data[0].price;
   const last = data[data.length - 1].price;
   const isPositive = normalized ? (chartData[chartData.length - 1]?.[ticker] ?? 0) >= 0 : last >= first;
-
   const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
   const primaryColor = isPositive ? "#16a34a" : "#dc2626";
 
@@ -187,47 +175,19 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
             />
             <YAxis
               domain={[Math.floor(min - padding), Math.ceil(max + padding)]}
-              tickFormatter={(v) => normalized ? `${v}%` : `$${v}`}
+              tickFormatter={(v) => normalized ? `${v}%` : `${v}`}
               tick={{ fontSize: 11 }}
               className="fill-muted-foreground"
               width={65}
             />
             <Tooltip content={createTooltip(normalized)} />
             {isComparing && <Legend />}
-            <Line
-              type="monotone"
-              dataKey={ticker}
-              stroke={primaryColor}
-              strokeWidth={2}
-              dot={false}
-              animationDuration={500}
-              connectNulls
-            />
+            <Line type="monotone" dataKey={ticker} stroke={primaryColor} strokeWidth={2} dot={false} animationDuration={500} connectNulls />
             {compareSeries.map((s, i) => (
-              <Line
-                key={s.ticker}
-                type="monotone"
-                dataKey={s.ticker}
-                stroke={getCompareColor(i)}
-                strokeWidth={2}
-                dot={false}
-                animationDuration={500}
-              connectNulls
-            />
+              <Line key={s.ticker} type="monotone" dataKey={s.ticker} stroke={getCompareColor(i)} strokeWidth={2} dot={false} animationDuration={500} connectNulls />
             ))}
             {piecewiseKeys.map((key) => (
-              <Line
-                key={key}
-                type="linear"
-                dataKey={key}
-                stroke="#f59e0b"
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                dot={false}
-                animationDuration={500}
-                connectNulls
-                name={key.replace("_fit", " fit")}
-              />
+              <Line key={key} type="linear" dataKey={key} stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 3" dot={false} animationDuration={500} connectNulls name={key.replace("_fit", " fit")} />
             ))}
           </LineChart>
         </ResponsiveContainer>

@@ -1,11 +1,7 @@
-import { ASSETS } from "@/lib/mockData";
+import { useData } from "@/contexts/DataContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +20,8 @@ export function getCompareColor(index: number) {
 }
 
 export function ComparisonSelector({ primaryTicker, compareTickers, onToggle }: ComparisonSelectorProps) {
-  const available = ASSETS.filter((a) => a.ticker !== primaryTicker);
+  const { assets } = useData();
+  const available = assets.filter((a) => a.ticker !== primaryTicker);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -45,7 +42,7 @@ export function ComparisonSelector({ primaryTicker, compareTickers, onToggle }: 
             <Plus className="h-3 w-3" /> Compare
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-56 p-2" align="start">
+        <PopoverContent className="w-56 p-2 max-h-[300px] overflow-y-auto" align="start">
           <div className="text-xs font-medium text-muted-foreground mb-2 px-2">Add asset to compare</div>
           {available.map((a) => {
             const isSelected = compareTickers.includes(a.ticker);

@@ -6,21 +6,26 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
+import Monitoring from "./pages/Monitoring.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import { AppHeader } from "@/components/AppHeader";
+import { AppHeader, AppTab } from "@/components/AppHeader";
+import { DataProvider } from "@/contexts/DataContext";
 
 const queryClient = new QueryClient();
 
 function MainApp() {
-  const [tab, setTab] = useState<"market" | "portfolio">("market");
+  const [tab, setTab] = useState<AppTab>("monitoring");
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader activeTab={tab} onTabChange={setTab} />
-      <div style={{ display: tab === "market" ? "block" : "none" }}>
+      <div style={{ display: tab === "monitoring" ? "block" : "none" }}>
+        <Monitoring />
+      </div>
+      <div style={{ display: tab === "exploration" ? "block" : "none" }}>
         <Index />
       </div>
-      <div style={{ display: tab === "portfolio" ? "block" : "none" }}>
+      <div style={{ display: tab === "construction" ? "block" : "none" }}>
         <Portfolio />
       </div>
     </div>
@@ -32,12 +37,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<MainApp />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <DataProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<MainApp />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </DataProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
