@@ -7,7 +7,7 @@ import { PortfolioSaveLoad } from "@/components/PortfolioSaveLoad";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
-import { Allocation, calculatePortfolioReturns } from "@/lib/portfolioCalc";
+import { Allocation, calculatePortfolioReturns, calculateCumulativeReturns } from "@/lib/portfolioCalc";
 import { computeStats, computeStatsRelativeDrawdowns, PortfolioStats } from "@/lib/portfolioStats";
 import { ASSETS, generatePriceData, filterByDateRange } from "@/lib/mockData";
 import { greedyPiecewise } from "@/lib/piecewiseModel";
@@ -46,20 +46,14 @@ const Portfolio = () => {
     return calculatePortfolioReturns(allocations, startDate, endDate);
   }, [allocations, startDate, endDate, isValid]);
 
-  // Build overlay cum returns for compare assets
+  // Build overlay cum returns for compare assets using pct_change → cumprod
   const overlaySeriesMap = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
     for (const t of overlayTickers) {
-      const asset = ASSETS.find((a) => a.ticker === t);
-      if (!asset) continue;
-      const all = generatePriceData(asset);
-      const filtered = filterByDateRange(all, startDate, endDate);
-      if (filtered.length === 0) continue;
-      const base = filtered[0].price;
+      const series = calculateCumulativeReturns(t, startDate, endDate);
+      if (series.length === 0) continue;
       const lookup: Record<string, number> = {};
-      for (const p of filtered) {
-        lookup[p.date] = Math.round(((p.price - base) / base) * 10000) / 100;
-      }
+      for (const p of series) lookup[p.date] = p.cumret;
       map[t] = lookup;
     }
     return map;
