@@ -78,18 +78,27 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
 
   const sortedEntries = Object.entries(merged).sort(([a], [b]) => a.localeCompare(b));
 
-  // Build chart data, optionally normalizing to % change from first value
+  // Build chart data, optionally normalizing to cumulative return %
+  // using pct_change → (1 + r).cumprod() - 1
   const allTickers = [ticker, ...compareSeries.map((s) => s.ticker)];
-  const basePrices: Record<string, number | undefined> = {};
 
+  // Per-ticker cumulative-return lookup (date -> cumret %)
+  const cumretLookup: Record<string, Record<string, number>> = {};
   if (normalized) {
     for (const t of allTickers) {
-      for (const [, values] of sortedEntries) {
-        if (values[t] != null) {
-          basePrices[t] = values[t];
-          break;
+      const lookup: Record<string, number> = {};
+      let factor = 1;
+      let prev: number | null = null;
+      for (const [date, values] of sortedEntries) {
+        const price = values[t];
+        if (price == null) continue;
+        if (prev != null && prev !== 0) {
+          factor *= price / prev;
         }
+        prev = price;
+        lookup[date] = (factor - 1) * 100;
       }
+      cumretLookup[t] = lookup;
     }
   }
 
@@ -97,8 +106,9 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     const row: Record<string, any> = { date };
     for (const t of allTickers) {
       if (values[t] == null) continue;
-      if (normalized && basePrices[t]) {
-        row[t] = ((values[t] - basePrices[t]!) / basePrices[t]!) * 100;
+      if (normalized) {
+        const cr = cumretLookup[t]?.[date];
+        if (cr != null) row[t] = Math.round(cr * 100) / 100;
       } else {
         row[t] = values[t];
       }
@@ -106,34 +116,39 @@ export function PriceChart({ data, ticker, compareSeries = [], normalized = fals
     return row;
   });
 
-  // Compute piecewise model for each ticker if enabled
+  // Piecewise model — always fit on cumulative returns (pct_change → cumprod)
   const piecewiseKeys: string[] = [];
   if (showPiecewise) {
     for (const t of allTickers) {
-      const vals = chartData.map((r) => r[t] as number | undefined).filter((v) => v != null) as number[];
-      if (vals.length < 10) continue;
-      // Build cumulative returns from the price/value series
-      const cumRet = vals.map((v) => {
-        const base = vals[0];
-        return base !== 0 ? ((v - base) / base) * 100 : 0;
+      // Build cumulative return series from raw prices for this ticker
+      const cumRet: number[] = [];
+      const rowIdxs: number[] = [];
+      let factor = 1;
+      let prev: number | null = null;
+      chartData.forEach((row, idx) => {
+        const priceVal = sortedEntries.find(([d]) => d === row.date)?.[1][t];
+        if (priceVal == null) return;
+        if (prev != null && prev !== 0) factor *= priceVal / prev;
+        prev = priceVal;
+        cumRet.push((factor - 1) * 100);
+        rowIdxs.push(idx);
       });
+      if (cumRet.length < 10) continue;
+
       const { model } = greedyPiecewise(cumRet, 0.98, 15);
-      // Map model back to price-like values
-      const base = vals[0];
-      const modelPrices = model.map((cr) => base * (1 + cr / 100));
-      // Inject into chartData (only rows that have this ticker)
       const key = `${t}_fit`;
       piecewiseKeys.push(key);
-      let idx = 0;
-      for (const row of chartData) {
-        if (row[t] != null) {
-          if (normalized) {
-            // In normalized mode, store model cumret directly
-            row[key] = model[idx];
-          } else {
-            row[key] = Math.round(modelPrices[idx] * 100) / 100;
+
+      for (let i = 0; i < rowIdxs.length; i++) {
+        const row = chartData[rowIdxs[i]];
+        if (normalized) {
+          row[key] = Math.round(model[i] * 100) / 100;
+        } else {
+          // Map model cumret back into a price-like value (price0 * (1 + cr/100))
+          const base = sortedEntries.find(([d]) => d === chartData[rowIdxs[0]].date)?.[1][t];
+          if (base != null) {
+            row[key] = Math.round(base * (1 + model[i] / 100) * 100) / 100;
           }
-          idx++;
         }
       }
     }
