@@ -1,19 +1,37 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from "react";
 import { loadWorkbook, WorkbookData, AssetMeta } from "@/lib/dataLoader";
+import { fxOnDate, toNzdSeries } from "@/lib/fx";
+import { derivePortfolioValueSeries, latestSnapshotWeights, PortfolioValuePoint } from "@/lib/portfolioValue";
 
 interface DataContextValue extends WorkbookData {
   loading: boolean;
   error: string | null;
   getAsset: (ticker: string) => AssetMeta | undefined;
+  /** Local-currency price series (raw). */
   getSeries: (ticker: string) => { date: string; price: number }[];
+  /** NZD-converted price series via forward-filled FX. */
+  getNzdSeries: (ticker: string) => { date: string; price: number }[];
+  /** FX rate for a given currency on a given date (forward-filled). */
+  fxOn: (ccy: string, date: string) => number;
   portfolioNames: string[];
+  /** Latest snapshot weights, NZD-based. */
   getHoldings: (name: string) => { ticker: string; weight: number }[];
   getBenchmark: (name: string) => string | undefined;
+  /** Derived portfolio NZD value + TWR series from snapshot evolution. */
+  getPortfolioValueSeries: (name: string) => PortfolioValuePoint[];
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
 
-const EMPTY: WorkbookData = { assets: [], prices: [], holdings: [], benchmarks: [], priceSeries: {} };
+const EMPTY: WorkbookData = {
+  assets: [],
+  prices: [],
+  fxRates: [],
+  holdings: [],
+  benchmarks: [],
+  priceSeries: {},
+  fxSeries: {},
+};
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<WorkbookData>(EMPTY);
@@ -36,12 +54,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       error,
       getAsset: (t) => assetMap.get(t),
       getSeries: (t) => data.priceSeries[t] ?? [],
+      getNzdSeries: (t) => {
+        const meta = assetMap.get(t);
+        const series = data.priceSeries[t] ?? [];
+        if (!meta || meta.currency === "NZD") return series;
+        return toNzdSeries(series, meta.currency, data.fxSeries);
+      },
+      fxOn: (ccy, date) => fxOnDate(data.fxSeries, ccy, date),
       portfolioNames,
       getHoldings: (name) =>
-        data.holdings
-          .filter((h) => h.portfolio_name === name)
-          .map((h) => ({ ticker: h.ticker, weight: h.weight })),
-      getBenchmark: (name) => data.benchmarks.find((b) => b.portfolio_name === name)?.benchmark_ticker,
+        latestSnapshotWeights(name, data.holdings, data.fxSeries, data.assets),
+      getBenchmark: (name) =>
+        data.benchmarks.find((b) => b.portfolio_name === name)?.benchmark_ticker,
+      getPortfolioValueSeries: (name) =>
+        derivePortfolioValueSeries({
+          portfolioName: name,
+          holdings: data.holdings,
+          assets: data.assets,
+          priceSeries: data.priceSeries,
+          fxSeries: data.fxSeries,
+        }),
     };
   }, [data, loading, error]);
 

@@ -23,6 +23,15 @@ export function ComparisonSelector({ primaryTicker, compareTickers, onToggle }: 
   const { assets } = useData();
   const available = assets.filter((a) => a.ticker !== primaryTicker);
 
+  // Group: Assets, Benchmarks, Portfolios
+  const byType: Record<string, typeof assets> = { Asset: [], Benchmark: [], PortfolioNAV: [] };
+  for (const a of available) (byType[a.asset_type] ||= []).push(a);
+  const groupOrder: { key: string; label: string }[] = [
+    { key: "Asset", label: "Assets" },
+    { key: "Benchmark", label: "Benchmarks" },
+    { key: "PortfolioNAV", label: "Portfolios" },
+  ];
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {compareTickers.map((t, i) => (
@@ -42,23 +51,33 @@ export function ComparisonSelector({ primaryTicker, compareTickers, onToggle }: 
             <Plus className="h-3 w-3" /> Compare
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-56 p-2 max-h-[300px] overflow-y-auto" align="start">
-          <div className="text-xs font-medium text-muted-foreground mb-2 px-2">Add asset to compare</div>
-          {available.map((a) => {
-            const isSelected = compareTickers.includes(a.ticker);
+        <PopoverContent className="w-64 p-2 max-h-[360px] overflow-y-auto" align="start">
+          {groupOrder.map(({ key, label }) => {
+            const list = byType[key] ?? [];
+            if (!list.length) return null;
             return (
-              <button
-                key={a.ticker}
-                onClick={() => onToggle(a.ticker)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent",
-                  isSelected && "bg-accent"
-                )}
-              >
-                {isSelected && <Check className="h-3 w-3" />}
-                <span className={cn("font-semibold", !isSelected && "ml-5")}>{a.ticker}</span>
-                <span className="text-muted-foreground text-xs truncate">{a.name}</span>
-              </button>
+              <div key={key} className="mb-2 last:mb-0">
+                <div className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground mb-1 px-2">
+                  {label}
+                </div>
+                {list.map((a) => {
+                  const isSelected = compareTickers.includes(a.ticker);
+                  return (
+                    <button
+                      key={a.ticker}
+                      onClick={() => onToggle(a.ticker)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent",
+                        isSelected && "bg-accent"
+                      )}
+                    >
+                      {isSelected && <Check className="h-3 w-3" />}
+                      <span className={cn("font-semibold", !isSelected && "ml-5")}>{a.ticker}</span>
+                      <span className="text-muted-foreground text-xs truncate">{a.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </PopoverContent>

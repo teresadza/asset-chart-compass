@@ -4,6 +4,9 @@ import { subYears, format, parseISO } from "date-fns";
 import { useData } from "@/contexts/DataContext";
 import { PortfolioAllocator } from "@/components/PortfolioAllocator";
 import { PortfolioSaveLoad } from "@/components/PortfolioSaveLoad";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
@@ -18,8 +21,10 @@ const OVERLAY_COLORS = ["#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "
 const CONSTITUENT_COLORS = ["#64748b", "#94a3b8", "#78716c", "#a1a1aa", "#737373", "#9ca3af", "#a3a3a3", "#6b7280"];
 
 const Portfolio = () => {
-  const { getSeries, loading, error } = useData();
+  const { getNzdSeries, portfolioNames, getHoldings, loading, error } = useData();
+  const getSeries = getNzdSeries; // Construction simulates in NZD
   const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [loadFromPortfolio, setLoadFromPortfolio] = useState<string>("");
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
   const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
@@ -109,9 +114,32 @@ const Portfolio = () => {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold">Portfolio Construction</h2>
-          <p className="text-xs text-muted-foreground">What-if simulation — independent of actual holdings</p>
+          <p className="text-xs text-muted-foreground">What-if simulation in NZD — independent of actual holdings</p>
         </div>
-        <PortfolioSaveLoad allocations={allocations} onLoad={setAllocations} />
+        <div className="flex items-center gap-2 flex-wrap">
+          {portfolioNames.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Select value={loadFromPortfolio} onValueChange={setLoadFromPortfolio}>
+                <SelectTrigger className="w-[160px] h-9 text-sm"><SelectValue placeholder="From actual…" /></SelectTrigger>
+                <SelectContent>
+                  {portfolioNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!loadFromPortfolio}
+                onClick={() => {
+                  const w = getHoldings(loadFromPortfolio);
+                  if (w.length) setAllocations(w);
+                }}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" /> Load weights
+              </Button>
+            </div>
+          )}
+          <PortfolioSaveLoad allocations={allocations} onLoad={setAllocations} />
+        </div>
       </div>
 
       <PortfolioAllocator allocations={allocations} onChange={setAllocations} />
