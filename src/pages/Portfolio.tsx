@@ -21,13 +21,24 @@ const OVERLAY_COLORS = ["#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "
 const CONSTITUENT_COLORS = ["#64748b", "#94a3b8", "#78716c", "#a1a1aa", "#737373", "#9ca3af", "#a3a3a3", "#6b7280"];
 
 const Portfolio = () => {
-  const { getNzdSeries, portfolioNames, getHoldings, loading, error } = useData();
-  const getSeries = getNzdSeries; // Construction simulates in NZD
+  const { getNzdSeries, portfolioNames, getHoldings, dataDateRange, loading, error } = useData();
+  const getSeries = getNzdSeries;
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loadFromPortfolio, setLoadFromPortfolio] = useState<string>(portfolioNames[0] ?? "");
   const [baselineWeights, setBaselineWeights] = useState<Record<string, number>>({});
+  const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
+  const [endDate, setEndDate] = useState(() => new Date());
+  const [datesInitialized, setDatesInitialized] = useState(false);
 
-  // Default: load latest snapshot weights from first available portfolio
+  useEffect(() => {
+    if (!datesInitialized && dataDateRange) {
+      const end = new Date(dataDateRange.max);
+      setEndDate(end);
+      setStartDate(subYears(end, 1));
+      setDatesInitialized(true);
+    }
+  }, [dataDateRange, datesInitialized]);
+
   useEffect(() => {
     if (allocations.length === 0 && portfolioNames.length > 0) {
       const first = portfolioNames[0];
@@ -39,8 +50,6 @@ const Portfolio = () => {
       }
     }
   }, [portfolioNames, getHoldings, allocations.length]);
-  const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
-  const [endDate, setEndDate] = useState(() => new Date());
   const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
   const [showPiecewise, setShowPiecewise] = useState(false);
   const [showAssets, setShowAssets] = useState(false);

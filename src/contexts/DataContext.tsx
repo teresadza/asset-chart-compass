@@ -19,6 +19,8 @@ interface DataContextValue extends WorkbookData {
   getBenchmark: (name: string) => string | undefined;
   /** Derived portfolio NZD value + TWR series from snapshot evolution. */
   getPortfolioValueSeries: (name: string) => PortfolioValuePoint[];
+  /** Min/max dates across all loaded price data (ISO yyyy-mm-dd). */
+  dataDateRange: { min: string; max: string } | null;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -48,10 +50,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<DataContextValue>(() => {
     const assetMap = new Map(data.assets.map((a) => [a.ticker, a]));
     const portfolioNames = Array.from(new Set(data.holdings.map((h) => h.portfolio_name)));
+    let dMin = "", dMax = "";
+    for (const series of Object.values(data.priceSeries)) {
+      if (!series.length) continue;
+      const first = series[0].date, last = series[series.length - 1].date;
+      if (!dMin || first < dMin) dMin = first;
+      if (!dMax || last > dMax) dMax = last;
+    }
+    const dataDateRange = dMin && dMax ? { min: dMin, max: dMax } : null;
     return {
       ...data,
       loading,
       error,
+      dataDateRange,
       getAsset: (t) => assetMap.get(t),
       getSeries: (t) => data.priceSeries[t] ?? [],
       getNzdSeries: (t) => {
