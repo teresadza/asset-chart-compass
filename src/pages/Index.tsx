@@ -11,15 +11,17 @@ import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { Switch } from "@/components/ui/switch";
 
 const Index = () => {
-  const { assets, getSeries, getNzdSeries, loading, error } = useData();
+  const { assets, getSeries, getNzdSeries, dataDateRange, loading, error } = useData();
   const defaultTicker = assets[0]?.ticker ?? "";
+  const defaultEnd = dataDateRange ? new Date(dataDateRange.max) : new Date();
+  const defaultStart = subYears(defaultEnd, 1);
   const [ticker, setTicker] = useState(defaultTicker);
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [normalized, setNormalized] = useState(false);
   const [showPiecewise, setShowPiecewise] = useState(false);
   const [inNzd, setInNzd] = useState(true);
-  const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
-  const [endDate, setEndDate] = useState(() => new Date());
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
 
   const activeTicker = ticker || defaultTicker;
   const asset = assets.find((a) => a.ticker === activeTicker);
