@@ -19,11 +19,13 @@ import {
 const Monitoring = () => {
   const {
     portfolioNames, getHoldings, getBenchmark, getAsset, getNzdSeries,
-    getPortfolioValueSeries, holdings, loading, error,
+    getPortfolioValueSeries, holdings, dataDateRange, loading, error,
   } = useData();
+  const defaultEnd = dataDateRange ? new Date(dataDateRange.max) : new Date();
+  const defaultStart = subYears(defaultEnd, 2);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
-  const [startDate, setStartDate] = useState(() => subYears(new Date(), 2));
-  const [endDate, setEndDate] = useState(() => new Date());
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
   const [mode, setMode] = useState<"return" | "value">("return");
 
   useEffect(() => {
