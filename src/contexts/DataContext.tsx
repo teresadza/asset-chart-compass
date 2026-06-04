@@ -63,8 +63,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       dataDateRange,
-      loading,
-      error,
       getAsset: (t) => assetMap.get(t),
       getSeries: (t) => data.priceSeries[t] ?? [],
       getNzdSeries: (t) => {
