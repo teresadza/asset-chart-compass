@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { subYears } from "date-fns";
 import { useData } from "@/contexts/DataContext";
 import { toPricePoints, filterByDateRange } from "@/lib/priceSeries";
@@ -13,15 +13,22 @@ import { Switch } from "@/components/ui/switch";
 const Index = () => {
   const { assets, getSeries, getNzdSeries, dataDateRange, loading, error } = useData();
   const defaultTicker = assets[0]?.ticker ?? "";
-  const defaultEnd = dataDateRange ? new Date(dataDateRange.max) : new Date();
-  const defaultStart = subYears(defaultEnd, 1);
   const [ticker, setTicker] = useState(defaultTicker);
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [normalized, setNormalized] = useState(false);
   const [showPiecewise, setShowPiecewise] = useState(false);
   const [inNzd, setInNzd] = useState(true);
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
+  const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
+  const [endDate, setEndDate] = useState(() => new Date());
+  const [datesInitialized, setDatesInitialized] = useState(false);
+  useEffect(() => {
+    if (!datesInitialized && dataDateRange) {
+      const end = new Date(dataDateRange.max);
+      setEndDate(end);
+      setStartDate(subYears(end, 1));
+      setDatesInitialized(true);
+    }
+  }, [dataDateRange, datesInitialized]);
 
   const activeTicker = ticker || defaultTicker;
   const asset = assets.find((a) => a.ticker === activeTicker);

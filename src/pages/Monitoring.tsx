@@ -21,12 +21,19 @@ const Monitoring = () => {
     portfolioNames, getHoldings, getBenchmark, getAsset, getNzdSeries,
     getPortfolioValueSeries, holdings, dataDateRange, loading, error,
   } = useData();
-  const defaultEnd = dataDateRange ? new Date(dataDateRange.max) : new Date();
-  const defaultStart = subYears(defaultEnd, 2);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
+  const [startDate, setStartDate] = useState(() => subYears(new Date(), 2));
+  const [endDate, setEndDate] = useState(() => new Date());
   const [mode, setMode] = useState<"return" | "value">("return");
+  const [datesInitialized, setDatesInitialized] = useState(false);
+  useEffect(() => {
+    if (!datesInitialized && dataDateRange) {
+      const end = new Date(dataDateRange.max);
+      setEndDate(end);
+      setStartDate(subYears(end, 2));
+      setDatesInitialized(true);
+    }
+  }, [dataDateRange, datesInitialized]);
 
   useEffect(() => {
     if (!selectedPortfolio && portfolioNames.length) setSelectedPortfolio(portfolioNames[0]);
