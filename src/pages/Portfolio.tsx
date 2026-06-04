@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { subYears, format, parseISO } from "date-fns";
 
 import { useData } from "@/contexts/DataContext";
@@ -24,7 +24,21 @@ const Portfolio = () => {
   const { getNzdSeries, portfolioNames, getHoldings, loading, error } = useData();
   const getSeries = getNzdSeries; // Construction simulates in NZD
   const [allocations, setAllocations] = useState<Allocation[]>([]);
-  const [loadFromPortfolio, setLoadFromPortfolio] = useState<string>("");
+  const [loadFromPortfolio, setLoadFromPortfolio] = useState<string>(portfolioNames[0] ?? "");
+  const [baselineWeights, setBaselineWeights] = useState<Record<string, number>>({});
+
+  // Default: load latest snapshot weights from first available portfolio
+  useEffect(() => {
+    if (allocations.length === 0 && portfolioNames.length > 0) {
+      const first = portfolioNames[0];
+      const w = getHoldings(first);
+      if (w.length) {
+        setAllocations(w);
+        setBaselineWeights(Object.fromEntries(w.map((a) => [a.ticker, a.weight])));
+        setLoadFromPortfolio(first);
+      }
+    }
+  }, [portfolioNames, getHoldings, allocations.length]);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
   const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
@@ -131,7 +145,10 @@ const Portfolio = () => {
                 disabled={!loadFromPortfolio}
                 onClick={() => {
                   const w = getHoldings(loadFromPortfolio);
-                  if (w.length) setAllocations(w);
+                  if (w.length) {
+                    setAllocations(w);
+                    setBaselineWeights(Object.fromEntries(w.map((a) => [a.ticker, a.weight])));
+                  }
                 }}
               >
                 <Download className="h-3.5 w-3.5 mr-1" /> Load weights
@@ -142,7 +159,20 @@ const Portfolio = () => {
         </div>
       </div>
 
-      <PortfolioAllocator allocations={allocations} onChange={setAllocations} />
+      <PortfolioAllocator
+        allocations={allocations}
+        onChange={setAllocations}
+        baseline={baselineWeights}
+        baselineLabel={loadFromPortfolio ? `${loadFromPortfolio} actual` : "Baseline"}
+        onResetToBaseline={
+          Object.keys(baselineWeights).length > 0
+            ? () =>
+                setAllocations(
+                  Object.entries(baselineWeights).map(([ticker, weight]) => ({ ticker, weight }))
+                )
+            : undefined
+        }
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <DateRangeFilter startDate={startDate} endDate={endDate} onStartChange={setStartDate} onEndChange={setEndDate} />
