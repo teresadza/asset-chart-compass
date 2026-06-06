@@ -47,8 +47,10 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<MainApp />} />
+            <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+
         </BrowserRouter>
       </DataProvider>
     </TooltipProvider>
