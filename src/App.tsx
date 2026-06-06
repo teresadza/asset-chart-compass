@@ -8,7 +8,9 @@ import Index from "./pages/Index.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
 import Monitoring from "./pages/Monitoring.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import About from "./pages/About.tsx";
 import { AppHeader, AppTab } from "@/components/AppHeader";
+import { AppFooter } from "@/components/AppFooter";
 import { DataProvider } from "@/contexts/DataContext";
 
 const queryClient = new QueryClient();
@@ -17,20 +19,24 @@ function MainApp() {
   const [tab, setTab] = useState<AppTab>("monitoring");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <AppHeader activeTab={tab} onTabChange={setTab} />
-      <div style={{ display: tab === "monitoring" ? "block" : "none" }}>
-        <Monitoring />
+      <div className="flex-1">
+        <div style={{ display: tab === "monitoring" ? "block" : "none" }}>
+          <Monitoring />
+        </div>
+        <div style={{ display: tab === "exploration" ? "block" : "none" }}>
+          <Index />
+        </div>
+        <div style={{ display: tab === "construction" ? "block" : "none" }}>
+          <Portfolio />
+        </div>
       </div>
-      <div style={{ display: tab === "exploration" ? "block" : "none" }}>
-        <Index />
-      </div>
-      <div style={{ display: tab === "construction" ? "block" : "none" }}>
-        <Portfolio />
-      </div>
+      <AppFooter />
     </div>
   );
 }
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
