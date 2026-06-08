@@ -17,6 +17,7 @@ const Index = () => {
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [normalized, setNormalized] = useState(false);
   const [showPiecewise, setShowPiecewise] = useState(false);
+  const [maxModels, setMaxModels] = useState(10);
   const [inNzd, setInNzd] = useState(true);
   const [startDate, setStartDate] = useState(() => subYears(new Date(), 1));
   const [endDate, setEndDate] = useState(() => new Date());
@@ -87,11 +88,22 @@ const Index = () => {
             <div className="flex items-center gap-2">
               <label htmlFor="piecewise" className="text-xs text-muted-foreground whitespace-nowrap">Piecewise Fit</label>
               <Switch id="piecewise" checked={showPiecewise} onCheckedChange={setShowPiecewise} />
+              {showPiecewise && (
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxModels}
+                  onChange={(e) => setMaxModels(Math.max(1, Math.min(50, Number(e.target.value))))}
+                  className="w-14 h-7 rounded-md border border-input bg-background px-2 text-xs text-center"
+                  title="Max segments"
+                />
+              )}
             </div>
           </div>
         </div>
 
-        <PriceChart data={filteredData} ticker={activeTicker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} />
+        <PriceChart data={filteredData} ticker={activeTicker} compareSeries={compareSeries} normalized={normalized} showPiecewise={showPiecewise} maxModels={maxModels} />
       </main>
     </>
   );

@@ -7,20 +7,15 @@ interface DataContextValue extends WorkbookData {
   loading: boolean;
   error: string | null;
   getAsset: (ticker: string) => AssetMeta | undefined;
-  /** Local-currency price series (raw). */
   getSeries: (ticker: string) => { date: string; price: number }[];
-  /** NZD-converted price series via forward-filled FX. */
   getNzdSeries: (ticker: string) => { date: string; price: number }[];
-  /** FX rate for a given currency on a given date (forward-filled). */
   fxOn: (ccy: string, date: string) => number;
   portfolioNames: string[];
-  /** Latest snapshot weights, NZD-based. */
   getHoldings: (name: string) => { ticker: string; weight: number }[];
   getBenchmark: (name: string) => string | undefined;
-  /** Derived portfolio NZD value + TWR series from snapshot evolution. */
   getPortfolioValueSeries: (name: string) => PortfolioValuePoint[];
-  /** Min/max dates across all loaded price data (ISO yyyy-mm-dd). */
   dataDateRange: { min: string; max: string } | null;
+  loadUserData: (data: WorkbookData) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -85,6 +80,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           priceSeries: data.priceSeries,
           fxSeries: data.fxSeries,
         }),
+      loadUserData: (newData: WorkbookData) => {
+        setData(newData);
+        setError(null);
+      },
     };
   }, [data, loading, error]);
 

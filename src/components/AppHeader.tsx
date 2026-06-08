@@ -1,4 +1,8 @@
 import { cn } from "@/lib/utils";
+import { UploadDialog } from "@/components/UploadDialog";
+import { useData } from "@/contexts/DataContext";
+import { WorkbookData } from "@/lib/dataLoader";
+import { Badge } from "@/components/ui/badge";
 
 export type AppTab = "monitoring" | "exploration" | "construction";
 
@@ -14,11 +18,17 @@ const TABS: { id: AppTab; label: string }[] = [
 ];
 
 export function AppHeader({ activeTab, onTabChange }: Props) {
+  const { loadUserData, assets, loading } = useData();
+
+  const handleLoad = (data: WorkbookData) => {
+    loadUserData(data);
+  };
+
   return (
     <header className="border-b">
       <div className="container mx-auto flex items-center gap-6 py-3 px-4">
         <span className="text-lg font-bold tracking-tight">Portfolio Tools</span>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 flex-1">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -34,6 +44,14 @@ export function AppHeader({ activeTab, onTabChange }: Props) {
             </button>
           ))}
         </nav>
+        <div className="flex items-center gap-2">
+          {!loading && assets.length > 0 && (
+            <Badge variant="secondary" className="text-xs font-normal">
+              {assets.filter(a => !a.is_benchmark).length} assets loaded
+            </Badge>
+          )}
+          <UploadDialog onLoad={handleLoad} />
+        </div>
       </div>
     </header>
   );

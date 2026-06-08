@@ -12,7 +12,7 @@ import { ComparisonSelector } from "@/components/ComparisonSelector";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { Allocation, calculatePortfolioReturns, calculateCumulativeReturns } from "@/lib/portfolioCalc";
 import { computeStats, computeStatsRelativeDrawdowns, PortfolioStats } from "@/lib/portfolioStats";
-import { greedyPiecewise } from "@/lib/piecewiseModel";
+import { fetchPiecewiseModel } from "@/lib/piecewiseApi";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
@@ -52,6 +52,7 @@ const Portfolio = () => {
   }, [portfolioNames, getHoldings, allocations.length]);
   const [overlayTickers, setOverlayTickers] = useState<string[]>([]);
   const [showPiecewise, setShowPiecewise] = useState(false);
+  const [maxModels, setMaxModels] = useState(10);
   const [showAssets, setShowAssets] = useState(false);
 
   const totalWeight = allocations.reduce((s, a) => s + a.weight, 0);
@@ -85,12 +86,29 @@ const Portfolio = () => {
     });
   }, [chartData, overlayTickers, overlaySeriesMap]);
 
+  const [portfolioFit, setPortfolioFit] = useState<number[]>([]);
+  const [fitting, setFitting] = useState(false);
+
+  useEffect(() => {
+    if (!showPiecewise || mergedData.length < 10) {
+      setPortfolioFit([]);
+      return;
+    }
+    const controller = new AbortController();
+    setFitting(true);
+    fetchPiecewiseModel(mergedData.map((r) => r.portfolio), maxModels, 0.98, controller.signal)
+      .then(({ model }) => {
+        setPortfolioFit(model);
+        setFitting(false);
+      })
+      .catch((e) => { if (e.name !== "AbortError") setFitting(false); });
+    return () => controller.abort();
+  }, [mergedData, showPiecewise, maxModels]);
+
   const piecewiseData = useMemo(() => {
-    if (!showPiecewise || mergedData.length < 10) return mergedData;
-    const vals = mergedData.map((r) => r.portfolio);
-    const { model } = greedyPiecewise(vals, 0.98, 15);
-    return mergedData.map((row, i) => ({ ...row, portfolio_fit: Math.round(model[i] * 100) / 100 }));
-  }, [mergedData, showPiecewise]);
+    if (!portfolioFit.length) return mergedData;
+    return mergedData.map((row, i) => ({ ...row, portfolio_fit: Math.round(portfolioFit[i] * 100) / 100 }));
+  }, [mergedData, portfolioFit]);
 
   const displayData = showPiecewise ? piecewiseData : mergedData;
   const constituentTickers = allocations.map((a) => a.ticker);
@@ -194,6 +212,17 @@ const Portfolio = () => {
           <div className="flex items-center gap-2">
             <label htmlFor="pw-fit" className="text-xs text-muted-foreground whitespace-nowrap">Piecewise Fit</label>
             <Switch id="pw-fit" checked={showPiecewise} onCheckedChange={setShowPiecewise} />
+            {showPiecewise && (
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={maxModels}
+                onChange={(e) => setMaxModels(Math.max(1, Math.min(50, Number(e.target.value))))}
+                className="w-14 h-7 rounded-md border border-input bg-background px-2 text-xs text-center"
+                title="Max segments"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -207,6 +236,7 @@ const Portfolio = () => {
       ) : (
         <Card>
           <CardContent className="p-4 pt-5">
+            {fitting && <p className="text-xs text-muted-foreground text-right mb-1">Computing fit…</p>}
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={displayData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />

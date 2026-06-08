@@ -20,7 +20,7 @@ export interface PiecewiseResult {
 export function greedyPiecewise(
   cumRetInput: number[],
   rsqTarget = 0.98,
-  maxModels = 15
+  maxModels = 10
 ): PiecewiseResult {
   const n = cumRetInput.length;
   if (n < 2) return { sPos: [0], ePos: [0], model: [...cumRetInput], r2: 1 };

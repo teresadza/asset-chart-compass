@@ -9,14 +9,14 @@ export interface AssetMeta {
   asset_class: string;
   sector: string;
   region: string;
-  currency: string; // local currency
+  currency: string;
   is_benchmark: boolean;
 }
 
 export interface PriceRow {
   date: string;
   ticker: string;
-  price: number; // local price
+  price: number;
 }
 
 export interface FxRow {
@@ -31,7 +31,6 @@ export interface HoldingRow {
   ticker: string;
   market_value_local: number;
   local_ccy: string;
-  // legacy fallback for older simple format
   weight?: number;
 }
 
@@ -47,8 +46,10 @@ export interface WorkbookData {
   holdings: HoldingRow[];
   benchmarks: BenchmarkRow[];
   priceSeries: Record<string, { date: string; price: number }[]>;
-  fxSeries: Record<string, { date: string; rate: number }[]>; // ccy -> sorted
+  fxSeries: Record<string, { date: string; rate: number }[]>;
 }
+
+// ── Normalisation helpers ─────────────────────────────────────────────────────
 
 function normDate(v: any): string {
   if (v == null) return "";
@@ -80,16 +81,10 @@ function normAssetType(v: any, isBench: boolean): AssetType {
   return isBench ? "Benchmark" : "Asset";
 }
 
-export async function loadWorkbook(url = "/data/portfolio_data.xlsx"): Promise<WorkbookData> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to load workbook: ${res.status}`);
-  const buf = await res.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
+// ── Row parsers ───────────────────────────────────────────────────────────────
 
-  const sheet = (name: string) =>
-    wb.Sheets[name] ? XLSX.utils.sheet_to_json<any>(wb.Sheets[name], { defval: null }) : [];
-
-  const assets: AssetMeta[] = sheet("assets").map((r) => {
+function parseAssets(rows: any[]): AssetMeta[] {
+  return rows.map((r) => {
     const isBench = toBool(r.is_benchmark);
     return {
       ticker: String(r.ticker),
@@ -102,24 +97,30 @@ export async function loadWorkbook(url = "/data/portfolio_data.xlsx"): Promise<W
       is_benchmark: isBench,
     };
   });
+}
 
-  const prices: PriceRow[] = sheet("prices")
+function parsePrices(rows: any[]): PriceRow[] {
+  return rows
     .map((r) => ({
       date: normDate(r.date),
       ticker: String(r.ticker),
       price: Number(r.price ?? r.price_local),
     }))
     .filter((r) => r.date && r.ticker && Number.isFinite(r.price));
+}
 
-  const fxRates: FxRow[] = sheet("fx_rates")
+function parseFxRates(rows: any[]): FxRow[] {
+  return rows
     .map((r) => ({
       date: normDate(r.date),
       ccy: String(r.ccy ?? "").toUpperCase(),
       fx_to_nzd: Number(r.fx_to_nzd),
     }))
     .filter((r) => r.date && r.ccy && Number.isFinite(r.fx_to_nzd));
+}
 
-  const holdings: HoldingRow[] = sheet("portfolio_holdings").map((r) => ({
+function parseHoldings(rows: any[]): HoldingRow[] {
+  return rows.map((r) => ({
     portfolio_name: String(r.portfolio_name),
     effective_date: normDate(r.effective_date ?? r.date ?? ""),
     ticker: String(r.ticker),
@@ -127,12 +128,24 @@ export async function loadWorkbook(url = "/data/portfolio_data.xlsx"): Promise<W
     local_ccy: String(r.local_ccy ?? "").toUpperCase(),
     weight: r.weight != null ? Number(r.weight) : undefined,
   }));
+}
 
-  const benchmarks: BenchmarkRow[] = sheet("benchmarks").map((r) => ({
+function parseBenchmarks(rows: any[]): BenchmarkRow[] {
+  return rows.map((r) => ({
     portfolio_name: String(r.portfolio_name),
     benchmark_ticker: String(r.benchmark_ticker),
   }));
+}
 
+// ── Assembly ──────────────────────────────────────────────────────────────────
+
+function assembleWorkbook(
+  assets: AssetMeta[],
+  prices: PriceRow[],
+  fxRates: FxRow[],
+  holdings: HoldingRow[],
+  benchmarks: BenchmarkRow[]
+): WorkbookData {
   const priceSeries: Record<string, { date: string; price: number }[]> = {};
   for (const p of prices) (priceSeries[p.ticker] ||= []).push({ date: p.date, price: p.price });
   for (const t of Object.keys(priceSeries))
@@ -143,4 +156,64 @@ export async function loadWorkbook(url = "/data/portfolio_data.xlsx"): Promise<W
   for (const c of Object.keys(fxSeries)) fxSeries[c].sort((a, b) => a.date.localeCompare(b.date));
 
   return { assets, prices, fxRates, holdings, benchmarks, priceSeries, fxSeries };
+}
+
+// ── Load from URL (default, uses public/data/portfolio_data.xlsx) ─────────────
+
+export async function loadWorkbook(url = "/data/portfolio_data.xlsx"): Promise<WorkbookData> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load workbook: ${res.status}`);
+  const buf = await res.arrayBuffer();
+  return parseXlsxBuffer(buf);
+}
+
+// ── Load from a File object (XLSX dropped/selected by user) ───────────────────
+
+export async function loadWorkbookFromFile(file: File): Promise<WorkbookData> {
+  const buf = await file.arrayBuffer();
+  return parseXlsxBuffer(buf);
+}
+
+function parseXlsxBuffer(buf: ArrayBuffer): WorkbookData {
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = (name: string) =>
+    wb.Sheets[name] ? XLSX.utils.sheet_to_json<any>(wb.Sheets[name], { defval: null }) : [];
+
+  return assembleWorkbook(
+    parseAssets(sheet("assets")),
+    parsePrices(sheet("prices")),
+    parseFxRates(sheet("fx_rates")),
+    parseHoldings(sheet("portfolio_holdings")),
+    parseBenchmarks(sheet("benchmarks"))
+  );
+}
+
+// ── Load from CSV files (one per sheet) ───────────────────────────────────────
+
+async function csvToRows(file: File): Promise<any[]> {
+  const text = await file.text();
+  // Parse CSV via SheetJS
+  const wb = XLSX.read(text, { type: "string" });
+  const firstSheet = wb.Sheets[wb.SheetNames[0]];
+  return firstSheet ? XLSX.utils.sheet_to_json<any>(firstSheet, { defval: null }) : [];
+}
+
+export async function loadWorkbookFromCsvFiles(
+  files: Record<"assets" | "prices" | "fx_rates" | "portfolio_holdings" | "benchmarks", File>
+): Promise<WorkbookData> {
+  const [assetRows, priceRows, fxRows, holdingRows, benchmarkRows] = await Promise.all([
+    csvToRows(files.assets),
+    csvToRows(files.prices),
+    csvToRows(files.fx_rates),
+    csvToRows(files.portfolio_holdings),
+    csvToRows(files.benchmarks),
+  ]);
+
+  return assembleWorkbook(
+    parseAssets(assetRows),
+    parsePrices(priceRows),
+    parseFxRates(fxRows),
+    parseHoldings(holdingRows),
+    parseBenchmarks(benchmarkRows)
+  );
 }
